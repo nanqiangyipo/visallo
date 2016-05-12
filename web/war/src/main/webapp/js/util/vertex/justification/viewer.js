@@ -31,8 +31,11 @@ define([
 
             if (this.attr.sourceMetadata) {
                 this.dataRequest('vertex', 'store', { vertexIds: this.attr.sourceMetadata.vertexId })
-                    .done(function(vertex) {
-                        self.select('sourceInfoTitleSelector').text(F.vertex.title(vertex));
+                    .then(function(vertex) {
+                        var title = vertex && F.vertex.title(vertex);
+                        self.select('sourceInfoTitleSelector').text(
+                            title || i18n('popovers.property_info.title_unknown')
+                        );
                         self.trigger('positionDialog');
                     });
             }

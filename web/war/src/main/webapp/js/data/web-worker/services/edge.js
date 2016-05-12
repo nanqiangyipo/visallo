@@ -62,6 +62,17 @@ define([
             })
         },
 
+        resolvedTo: function(edgeId, propertyName, propertyKey) {
+            var params = { graphEdgeId: edgeId };
+            if (!_.isUndefined(propertyName)) {
+                params.propertyName = propertyName;
+            }
+            if (!_.isUndefined(propertyKey)) {
+                params.propertyKey = propertyKey;
+            }
+            return ajax('GET', '/edge/resolved-to', params);
+        },
+
         history: function(edgeId) {
             return ajax('GET', '/edge/history', {
                 graphEdgeId: edgeId

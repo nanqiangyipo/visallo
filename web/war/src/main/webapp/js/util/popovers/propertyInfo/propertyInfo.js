@@ -206,6 +206,20 @@ define([
 
             if (isVisibility) {
                 this.renderJustification([])
+                this.requestResolvedTo().then(function(mentions) {
+                    console.log(mentions);
+                    var validMentions = _.reject(mentions, function(m) {
+                        return m.value.vertexId === self.attr.data.id;
+                    });
+
+                    console.log('valid', validMentions);
+                    self.renderJustification(
+                        validMentions.length ?
+                            [{ sourceInfo: validMentions[0].value }] :
+                            []
+                    );
+                    positionDialog();
+                })
             } else {
                 this.renderJustification(justification);
                 if (!justificationMetadata || !('justificationText' in justificationMetadata)) {
@@ -236,6 +250,38 @@ define([
 
             this.dialog.show();
             positionDialog();
+        };
+
+        this.requestResolvedTo = function() {
+            var model = this.attr.data,
+                service = F.vertex.isEdge(model) ? 'edge' : 'vertex';
+
+            return this.dataRequest(service, 'resolvedTo', model.id)
+                .then(function(result) {
+                    return result.termMentions.map(function(m) {
+                            var byProperties = _.indexBy(m.properties, 'name'),
+                                val = function(name) {
+                                    var p = byProperties['http://visallo.org/termMention#' + name];
+                                    if (p) {
+                                        return p.value;
+                                    }
+                                };
+                            console.log(byProperties)
+                            return {
+                                name: 'sourceInfo',
+                                value: {
+                                    vertexId: val('forElementId'),
+                                    textPropertyName: val('propertyName'),
+                                    textPropertyKey: val('propertyKey'),
+                                    offsets: [
+                                        val('startOffset'),
+                                        val('endOffset')
+                                    ],
+                                    snippet: val('snippet')
+                                }
+                            }
+                        });
+                });
         };
 
         this.renderJustification = function(justification) {
