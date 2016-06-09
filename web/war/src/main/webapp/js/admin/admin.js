@@ -3,12 +3,17 @@ define([
     'configuration/plugins/registry',
     'hbs!./template',
     'tpl!util/alert',
+    'react-dom',
+    'react',
     './bundled/index'
 ], function(
     defineComponent,
     registry,
     template,
-    alertTemplate) {
+    alertTemplate,
+    ReactDOM,
+    React,
+    bundleIndex) {
     'use strict';
 
     registry.documentExtensionPoint('org.visallo.admin',
@@ -18,7 +23,7 @@ define([
                 e.section && e.name && e.subtitle
         },
         'http://docs.visallo.org/extension-points/front-end/admin'
-    )
+    );
 
     return defineComponent(AdminList);
 
@@ -95,7 +100,11 @@ define([
                         Promise.resolve(component.Component) :
                         Promise.require(component.componentPath)
                 ).then(function(Component) {
-                    Component.attachTo(form, data);
+                    if (Component.prototype && Component.prototype.isReactComponent) {
+                        ReactDOM.render(React.createElement(Component), form[0]);
+                    } else {
+                        Component.attachTo(form, data);
+                    }
                     self.trigger(container, 'paneResized');
                 })
             }
@@ -163,7 +172,7 @@ define([
                                         .text(component.subtitle)
                                 });
                         });
-                    })
+                    });
 
                 if (extensions.length === 0) {
                     self.$node.prepend(alertTemplate({
