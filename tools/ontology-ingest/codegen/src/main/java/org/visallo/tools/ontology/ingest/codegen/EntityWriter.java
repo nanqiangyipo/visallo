@@ -33,12 +33,14 @@ public abstract class EntityWriter {
     private static final Pattern CLASSNAME_PART_MATCHER = Pattern.compile("^[a-zA-Z0-9]+$");
 
     private String outputDirectory;
+    protected boolean writeCoreVisalloClasses;
 
     private Map<String, ClientApiOntology.Property> propertyMap;
 
-    public EntityWriter(String outputDirectory, ClientApiOntology ontology) {
+    public EntityWriter(String outputDirectory, ClientApiOntology ontology, boolean writeCoreVisalloClasses) {
         this.outputDirectory = outputDirectory;
         propertyMap = ontology.getProperties().stream().collect(Collectors.toMap(ClientApiOntology.Property::getTitle, property -> property));
+        this.writeCoreVisalloClasses = writeCoreVisalloClasses;
     }
 
     protected void writeClass(

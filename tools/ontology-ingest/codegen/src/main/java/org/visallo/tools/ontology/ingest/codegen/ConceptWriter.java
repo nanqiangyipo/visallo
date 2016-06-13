@@ -14,8 +14,8 @@ import java.util.function.Consumer;
 public class ConceptWriter extends EntityWriter {
     private static final VisalloLogger LOGGER = VisalloLoggerFactory.getLogger(ConceptWriter.class);
 
-    public ConceptWriter(String outputDirectory, ClientApiOntology ontology) {
-        super(outputDirectory, ontology);
+    public ConceptWriter(String outputDirectory, ClientApiOntology ontology, boolean writeCoreVisalloClasses) {
+        super(outputDirectory, ontology, writeCoreVisalloClasses);
     }
 
     protected void writeClass(ClientApiOntology.Concept concept) {
@@ -24,7 +24,7 @@ public class ConceptWriter extends EntityWriter {
             String conceptClassName = classNameFromIri(concept.getId());
 
             // Don't expose the visallo internal concepts to the generated code
-            if (conceptPackage.startsWith("org.visallo") && !conceptClassName.equals("Root")) {
+            if (!writeCoreVisalloClasses && conceptPackage.startsWith("org.visallo") && !conceptClassName.equals("Root")) {
                 return;
             }
 

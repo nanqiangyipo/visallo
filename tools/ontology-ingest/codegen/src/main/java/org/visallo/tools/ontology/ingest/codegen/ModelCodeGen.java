@@ -16,7 +16,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 
 @Parameters(commandDescription = "Generate model classes based on a Visallo ontology.")
-public class CodegenCLI extends CommandLineTool {
+public class ModelCodeGen extends CommandLineTool {
 
     @Parameter(names = {"--inputJsonFile", "-f"}, arity = 1, converter = FileConverter.class, description = "The path to a local json file containing the Visallo ontology.")
     private File inputJsonFile;
@@ -33,8 +33,11 @@ public class CodegenCLI extends CommandLineTool {
     @Parameter(names = {"--outputDirectory", "-o"}, arity = 1, required = true, description = "The path to the output directory for the class files. If it does not exist, it will be created.")
     private String outputDirectory;
 
+    @Parameter(names = {"--includeVisalloClasses"}, description = "By default, the core Visallo concepts and relationships are skipped during code generation. Include this flag to include them.")
+    private boolean includeVisalloClasses;
+
     public static void main(String[] args) throws Exception {
-        CommandLineTool.main(new CodegenCLI(), args, false);
+        CommandLineTool.main(new ModelCodeGen(), args, false);
     }
 
     @Override
@@ -51,8 +54,8 @@ public class CodegenCLI extends CommandLineTool {
         }
 
         ClientApiOntology ontology = JsonUtil.getJsonMapper().readValue(ontologyJsonString, ClientApiOntology.class);
-        ConceptWriter conceptWriter = new ConceptWriter(outputDirectory, ontology);
-        RelationshipWriter relationshipWriter = new RelationshipWriter(outputDirectory, ontology);
+        ConceptWriter conceptWriter = new ConceptWriter(outputDirectory, ontology, includeVisalloClasses);
+        RelationshipWriter relationshipWriter = new RelationshipWriter(outputDirectory, ontology, includeVisalloClasses);
 
         ontology.getConcepts().forEach(conceptWriter::writeClass);
         ontology.getRelationships().forEach(relationshipWriter::writeClass);

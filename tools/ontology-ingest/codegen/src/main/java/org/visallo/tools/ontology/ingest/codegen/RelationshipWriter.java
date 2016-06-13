@@ -13,8 +13,8 @@ import java.util.function.Consumer;
 public class RelationshipWriter extends EntityWriter {
     private static final VisalloLogger LOGGER = VisalloLoggerFactory.getLogger(RelationshipWriter.class);
 
-    public RelationshipWriter(String outputDirectory, ClientApiOntology ontology) {
-        super(outputDirectory, ontology);
+    public RelationshipWriter(String outputDirectory, ClientApiOntology ontology, boolean writeCoreVisalloClasses) {
+        super(outputDirectory, ontology, writeCoreVisalloClasses);
     }
 
     protected void writeClass(ClientApiOntology.Relationship relationship) {
@@ -23,7 +23,7 @@ public class RelationshipWriter extends EntityWriter {
             String relationshipClassName = classNameFromIri(relationship.getTitle());
 
             // Don't expose the visallo internal relationships to the generated code
-            if (relationshipPackage.startsWith("org.visallo")) {
+            if (!writeCoreVisalloClasses && relationshipPackage.startsWith("org.visallo")) {
                 return;
             }
 

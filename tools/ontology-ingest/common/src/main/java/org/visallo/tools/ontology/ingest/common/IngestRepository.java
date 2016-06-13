@@ -33,6 +33,7 @@ public class IngestRepository {
     private Map<String, Object> defaultMetadata;
     private Long defaultTimestamp;
     private Visibility defaultVisibility;
+    private User ingestUser;
 
     private boolean validateOntologyWhenSaving = true;
 
@@ -53,6 +54,10 @@ public class IngestRepository {
 
     public void setValidateOntologyWhenSaving(boolean validateOntologyWhenSaving) {
         this.validateOntologyWhenSaving = validateOntologyWhenSaving;
+    }
+
+    public void setIngestUser(User ingestUser) {
+        this.ingestUser = ingestUser;
     }
 
     public Map<String, Object> getDefaultMetadata() {
@@ -78,6 +83,8 @@ public class IngestRepository {
         this.userRepository = userRepository;
         this.visibilityTranslator = visibilityTranslator;
         this.ontologyRepository = ontologyRepository;
+
+        ingestUser = userRepository.getSystemUser();
     }
 
     public List<Element> save(EntityBuilder... builders) {
@@ -293,7 +300,7 @@ public class IngestRepository {
 
         Visibility defaultVisibility = visibilityTranslator.getDefaultVisibility();
         VisalloProperties.MODIFIED_DATE_METADATA.setMetadata(metadata, new Date(), defaultVisibility);
-        VisalloProperties.MODIFIED_BY_METADATA.setMetadata(metadata, getIngestUser().getUserId(), defaultVisibility);
+        VisalloProperties.MODIFIED_BY_METADATA.setMetadata(metadata, ingestUser.getUserId(), defaultVisibility);
         VisalloProperties.CONFIDENCE_METADATA.setMetadata(metadata, GraphRepository.SET_PROPERTY_CONFIDENCE, defaultVisibility);
         VisalloProperties.VISIBILITY_JSON_METADATA.setMetadata(metadata, new VisibilityJson(visibilitySource), defaultVisibility);
 
@@ -309,11 +316,7 @@ public class IngestRepository {
     }
 
     private Authorizations getAuthorizations() {
-        return userRepository.getAuthorizations(getIngestUser());
-    }
-
-    private User getIngestUser() {
-        return userRepository.getSystemUser();
+        return userRepository.getAuthorizations(ingestUser);
     }
 
     public static class ValidationResult {

@@ -5,6 +5,9 @@ import com.google.common.base.Strings;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class PropertyAddition<T> {
     private String iri;
     private T value;
@@ -14,8 +17,8 @@ public class PropertyAddition<T> {
     private String visibility;
 
     public PropertyAddition(String iri, String key, T value) {
-        assert !Strings.isNullOrEmpty(iri);
-        assert !Strings.isNullOrEmpty(key);
+        checkArgument(!Strings.isNullOrEmpty(iri), "IRI must be provided to create a PropertyAddition");
+        checkArgument(!Strings.isNullOrEmpty(key), "Key must be provided to create a PropertyAddition");
 
         this.iri = iri;
         this.key = key;
