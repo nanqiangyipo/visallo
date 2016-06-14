@@ -30,47 +30,7 @@ public class IngestRepository {
     private Set<String> verifiedRelationshipConcepts = new HashSet<>();
     private Set<String> verifiedClassProperties = new HashSet<>();
 
-    private Map<String, Object> defaultMetadata;
-    private Long defaultTimestamp;
-    private Visibility defaultVisibility;
-    private User ingestUser;
-
-    private boolean validateOntologyWhenSaving = true;
-
-    public IngestRepository withDefaultMetadata(Map<String, Object> metdata) {
-        this.defaultMetadata = metdata;
-        return this;
-    }
-
-    public IngestRepository withDefaultTimestamp(Long timestamp) {
-        this.defaultTimestamp = timestamp;
-        return this;
-    }
-
-    public IngestRepository withDefaultVisibility(String visibility) {
-        this.defaultVisibility = visibilityTranslator.toVisibility(visibility).getVisibility();
-        return this;
-    }
-
-    public void setValidateOntologyWhenSaving(boolean validateOntologyWhenSaving) {
-        this.validateOntologyWhenSaving = validateOntologyWhenSaving;
-    }
-
-    public void setIngestUser(User ingestUser) {
-        this.ingestUser = ingestUser;
-    }
-
-    public Map<String, Object> getDefaultMetadata() {
-        return defaultMetadata;
-    }
-
-    public Long getDefaultTimestamp() {
-        return defaultTimestamp;
-    }
-
-    public Visibility getDefaultVisibility() {
-        return defaultVisibility;
-    }
+    private IngestOptions defaultIngestOptions;
 
     @Inject
     public IngestRepository(
@@ -84,18 +44,26 @@ public class IngestRepository {
         this.visibilityTranslator = visibilityTranslator;
         this.ontologyRepository = ontologyRepository;
 
-        ingestUser = userRepository.getSystemUser();
+        defaultIngestOptions = new IngestOptions(userRepository.getSystemUser());
     }
 
     public List<Element> save(EntityBuilder... builders) {
-        return save(Arrays.asList(builders));
+        return save(defaultIngestOptions, Arrays.asList(builders));
     }
 
     public List<Element> save(Collection<EntityBuilder> builders) {
+        return save(defaultIngestOptions, builders);
+    }
+
+    public List<Element> save(IngestOptions ingestOptions, EntityBuilder... builders) {
+        return save(ingestOptions, Arrays.asList(builders));
+    }
+
+    public List<Element> save(IngestOptions ingestOptions, Collection<EntityBuilder> builders) {
         LOGGER.debug("Saving %d entities", builders.size());
 
         // Validate the entities
-        if (validateOntologyWhenSaving) {
+        if (ingestOptions.isValidateOntologyWhenSaving()) {
             for (EntityBuilder builder : builders) {
                 ValidationResult validationResult = (builder instanceof ConceptBuilder) ?
                         validateConceptBuilder((ConceptBuilder) builder) :
@@ -110,9 +78,9 @@ public class IngestRepository {
         List<Element> elements = new ArrayList<>();
         for (EntityBuilder builder : builders) {
             if (builder instanceof ConceptBuilder) {
-                elements.add(save((ConceptBuilder) builder));
+                elements.add(save(ingestOptions, (ConceptBuilder) builder));
             } else {
-                elements.add(save((RelationshipBuilder) builder));
+                elements.add(save(ingestOptions, (RelationshipBuilder) builder));
             }
         }
         return elements;
@@ -122,44 +90,44 @@ public class IngestRepository {
         graph.flush();
     }
 
-    private Vertex save(ConceptBuilder conceptBuilder) {
-        Visibility conceptVisibility = getVisibility(conceptBuilder.getVisibility());
-        VertexBuilder vertexBuilder = graph.prepareVertex(conceptBuilder.getId(), getTimestamp(conceptBuilder.getTimestamp()), conceptVisibility);
+    private Vertex save(IngestOptions ingestOptions, ConceptBuilder conceptBuilder) {
+        Visibility conceptVisibility = getVisibility(ingestOptions, conceptBuilder.getVisibility());
+        VertexBuilder vertexBuilder = graph.prepareVertex(conceptBuilder.getId(), getTimestamp(ingestOptions, conceptBuilder.getTimestamp()), conceptVisibility);
         vertexBuilder.setProperty(VisalloProperties.CONCEPT_TYPE.getPropertyName(), conceptBuilder.getIri(), conceptVisibility);
 
-        addProperties(vertexBuilder, conceptBuilder);
+        addProperties(ingestOptions, vertexBuilder, conceptBuilder);
 
         LOGGER.trace("Saving vertex: %s", vertexBuilder.getVertexId());
-        return vertexBuilder.save(getAuthorizations());
+        return vertexBuilder.save(getAuthorizations(ingestOptions));
     }
 
-    private Edge save(RelationshipBuilder relationshipBuilder) {
-        Visibility relationshipVisibility = getVisibility(relationshipBuilder.getVisibility());
+    private Edge save(IngestOptions ingestOptions, RelationshipBuilder relationshipBuilder) {
+        Visibility relationshipVisibility = getVisibility(ingestOptions, relationshipBuilder.getVisibility());
         EdgeBuilderByVertexId edgeBuilder = graph.prepareEdge(
                 relationshipBuilder.getId(),
                 relationshipBuilder.getOutVertexId(),
                 relationshipBuilder.getInVertexId(),
                 relationshipBuilder.getIri(),
-                getTimestamp(relationshipBuilder.getTimestamp()),
+                getTimestamp(ingestOptions, relationshipBuilder.getTimestamp()),
                 relationshipVisibility
         );
 
-        addProperties(edgeBuilder, relationshipBuilder);
+        addProperties(ingestOptions, edgeBuilder, relationshipBuilder);
 
         LOGGER.trace("Saving edge: %s", edgeBuilder.getEdgeId());
-        return edgeBuilder.save(getAuthorizations());
+        return edgeBuilder.save(getAuthorizations(ingestOptions));
     }
 
-    private void addProperties(ElementBuilder elementBuilder, EntityBuilder entityBuilder) {
+    private void addProperties(IngestOptions ingestOptions, ElementBuilder elementBuilder, EntityBuilder entityBuilder) {
         for (PropertyAddition<?> propertyAddition : entityBuilder.getPropertyAdditions()) {
             if (propertyAddition.getValue() != null) {
                 elementBuilder.addPropertyValue(
                         propertyAddition.getKey(),
                         propertyAddition.getIri(),
                         propertyAddition.getValue(),
-                        buildMetadata(propertyAddition.getMetadata(), propertyAddition.getVisibility()),
-                        getTimestamp(propertyAddition.getTimestamp()),
-                        getVisibility(propertyAddition.getVisibility())
+                        buildMetadata(ingestOptions, propertyAddition.getMetadata(), propertyAddition.getVisibility()),
+                        getTimestamp(ingestOptions, propertyAddition.getTimestamp()),
+                        getVisibility(ingestOptions, propertyAddition.getVisibility())
                 );
             }
         }
@@ -282,30 +250,30 @@ public class IngestRepository {
         return relationshipBuilder.getIri() + ":" + relationshipBuilder.getOutVertexIri() + ":" + relationshipBuilder.getInVertexIri();
     }
 
-    private Long getTimestamp(Long timestamp) {
-        return timestamp != null ? timestamp : defaultTimestamp;
+    private Long getTimestamp(IngestOptions ingestOptions, Long timestamp) {
+        return timestamp != null ? timestamp : ingestOptions.getDefaultTimestamp();
     }
 
-    private Visibility getVisibility(String visibilitySource) {
+    private Visibility getVisibility(IngestOptions ingestOptions, String visibilitySource) {
         if (visibilitySource != null) {
             return visibilityTranslator.toVisibility(visibilitySource).getVisibility();
-        } else if (defaultVisibility != null) {
-            return defaultVisibility;
+        } else if (ingestOptions.getDefaultVisibility() != null) {
+            return ingestOptions.getDefaultVisibility();
         }
         return visibilityTranslator.getDefaultVisibility();
     }
 
-    private Metadata buildMetadata(Map<String, Object> map, String visibilitySource) {
+    private Metadata buildMetadata(IngestOptions ingestOptions, Map<String, Object> map, String visibilitySource) {
         Metadata metadata = new Metadata();
 
         Visibility defaultVisibility = visibilityTranslator.getDefaultVisibility();
         VisalloProperties.MODIFIED_DATE_METADATA.setMetadata(metadata, new Date(), defaultVisibility);
-        VisalloProperties.MODIFIED_BY_METADATA.setMetadata(metadata, ingestUser.getUserId(), defaultVisibility);
+        VisalloProperties.MODIFIED_BY_METADATA.setMetadata(metadata, ingestOptions.getIngestUser().getUserId(), defaultVisibility);
         VisalloProperties.CONFIDENCE_METADATA.setMetadata(metadata, GraphRepository.SET_PROPERTY_CONFIDENCE, defaultVisibility);
         VisalloProperties.VISIBILITY_JSON_METADATA.setMetadata(metadata, new VisibilityJson(visibilitySource), defaultVisibility);
 
-        if (defaultMetadata != null) {
-            defaultMetadata.forEach((k, v) -> metadata.add(k, v, defaultVisibility));
+        if (ingestOptions.getDefaultMetadata() != null) {
+            ingestOptions.getDefaultMetadata().forEach((k, v) -> metadata.add(k, v, defaultVisibility));
         }
 
         if (map != null) {
@@ -315,8 +283,8 @@ public class IngestRepository {
         return metadata;
     }
 
-    private Authorizations getAuthorizations() {
-        return userRepository.getAuthorizations(ingestUser);
+    private Authorizations getAuthorizations(IngestOptions ingestOptions) {
+        return userRepository.getAuthorizations(ingestOptions.getIngestUser());
     }
 
     public static class ValidationResult {

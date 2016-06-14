@@ -18,7 +18,7 @@ public class PropertyAddition<T> {
 
     public PropertyAddition(String iri, String key, T value) {
         checkArgument(!Strings.isNullOrEmpty(iri), "IRI must be provided to create a PropertyAddition");
-        checkArgument(!Strings.isNullOrEmpty(key), "Key must be provided to create a PropertyAddition");
+        checkNotNull(key, "Key must be provided to create a PropertyAddition");
 
         this.iri = iri;
         this.key = key;
