@@ -81,7 +81,7 @@ define([
                             self.trigger(document, 'paneResized');
                         }
                     }).show().find('.content'),
-                component = _.find(registry.extensionsForPoint('org.visallo.admin'), function(e) {
+                extension = _.find(registry.extensionsForPoint('org.visallo.admin'), function(e) {
                     return e.name.toLowerCase() === data.name &&
                         e.section.toLowerCase() === data.section;
                 });
@@ -89,18 +89,23 @@ define([
             form.teardownAllComponents()
                 .removePrefixedClasses('admin_less_cls')
                 .empty();
-            if (component) {
-                (
-                    component.Component ?
-                        Promise.resolve(component.Component) :
-                        Promise.require(component.componentPath)
-                ).then(function(Component) {
-                    Component.attachTo(form, data);
-                    self.trigger(container, 'paneResized');
-                })
-            }
 
-            this.trigger(container, 'paneResized');
+            if (extension) {
+                Promise.require('util/componentAttacher')
+                    .then(function(attacher) {
+                        return attacher()
+                            .node(form)
+                            .component(extension.component)
+                            .path(extension.componentPath)
+                            .params(data)
+                            .attach()
+                    })
+                    .then(function() {
+                        self.trigger(container, 'paneResized');
+                    })
+            } else {
+                this.trigger(container, 'paneResized');
+            }
         };
 
         this.update = function() {
