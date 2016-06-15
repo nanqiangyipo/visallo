@@ -162,12 +162,16 @@ public class IngestRepository {
             LOGGER.trace("Validating Relationship In/Out on %s: %s => %s", builder.getIri(), builder.getOutVertexIri(), builder.getInVertexIri());
             Relationship relationship = ontologyRepository.getRelationshipByIRI(builder.getIri());
             List<String> domainConceptIRIs = relationship.getDomainConceptIRIs();
-            if (!domainConceptIRIs.contains(builder.getOutVertexIri())) {
+            List<String> outVertexAndParentIris = getConceptIriWithParents(builder.getOutVertexIri());
+            outVertexAndParentIris.retainAll(domainConceptIRIs);
+            if (outVertexAndParentIris.size() == 0) {
                 return new ValidationResult("Out vertex Concept IRI: " + builder.getOutVertexIri() + " is invalid");
             }
 
             List<String> rangeConceptIRIs = relationship.getRangeConceptIRIs();
-            if (!rangeConceptIRIs.contains(builder.getInVertexIri())) {
+            List<String> inVertexAndParentIris = getConceptIriWithParents(builder.getInVertexIri());
+            inVertexAndParentIris.retainAll(rangeConceptIRIs);
+            if (inVertexAndParentIris.size() == 0) {
                 return new ValidationResult("In vertex Concept IRI: " + builder.getInVertexIri() + " is invalid");
             }
 
@@ -175,6 +179,20 @@ public class IngestRepository {
         }
 
         return validateProperties(builder, builder.getPropertyAdditions());
+    }
+
+    private List<String> getConceptIriWithParents(String conceptIri) {
+        List<String> conceptIriWithParents = new ArrayList<>();
+        String parentConceptIRI = conceptIri;
+        while (parentConceptIRI != null) {
+            Concept parentConcept = ontologyRepository.getConceptByIRI(parentConceptIRI);
+            parentConceptIRI = null;
+            if (parentConcept != null) {
+                conceptIriWithParents.add(parentConcept.getIRI());
+                parentConceptIRI = parentConcept.getParentConceptIRI();
+            }
+        }
+        return conceptIriWithParents;
     }
 
     private ValidationResult validateProperties(EntityBuilder entityBuilder, Set<PropertyAddition<?>> propertyAdditions) {
